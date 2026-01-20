@@ -66,3 +66,8 @@ TODO.md
 *.draft
 magpie_flowchart.dia
 magpie_project_structure.md
+
+# emacs lock files
+*~
+\#*\#
+.\#*
