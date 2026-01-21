@@ -42,10 +42,9 @@ data/
 Thumbs.db
 
 # Model files
-models/
-*.pt
-*.pth
-*.onnx
+models/*.pt
+models/*.pth
+models/*.onnx
 
 # Jupyter (in case you change your mind)
 .ipynb_checkpoints/
