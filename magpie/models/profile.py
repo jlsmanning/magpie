@@ -108,7 +108,7 @@ class UserProfile(pydantic.BaseModel):
     )
     
     # History tracking
-    seen_papers: Dict[str, datetime.datetime] = pydantic.Field(
+    seen_papers: typing.Dict[str, datetime.datetime] = pydantic.Field(
         default_factory=dict,
         description="Papers user has seen, mapped to when they were seen"
     )
@@ -126,7 +126,7 @@ class UserProfile(pydantic.BaseModel):
     
     @pydantic.field_validator('date_range')
     @classmethod
-    def validate_date_range(cls, v: typing.Optional[typing.Tuple[datetime.date, datetime.date]]) -> typing.Optional[typing.Tuple[date, date]]:
+    def validate_date_range(cls, v: typing.Optional[typing.Tuple[datetime.date, datetime.date]]) -> typing.Optional[typing.Tuple[datetime.date, datetime.date]]:
         """Ensure start date is before end date."""
         if v is not None:
             start_date, end_date = v
@@ -136,7 +136,7 @@ class UserProfile(pydantic.BaseModel):
 
     @pydantic.field_validator('interests')
     @classmethod
-    def no_duplicate_topics(cls, v: List[Interest]) -> List[Interest]:
+    def no_duplicate_topics(cls, v: typing.List[Interest]) -> typing.List[Interest]:
         topics_lower = [interest.topic.lower() for interest in v]
         if len(topics_lower) != len(set(topics_lower)):
             raise ValueError("Cannot have multiple interests with the same topic")
@@ -229,7 +229,7 @@ class UserProfile(pydantic.BaseModel):
 
     def cleanup_old_seen_papers(self, days: int = 90) -> None: #FIXME: ensure I'm actually using this!
         """Remove papers seen more than N days ago."""
-        cutoff = datetime.now() - datetime.timedelta(days=days)
+        cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
         self.seen_papers = {
             pid: when for pid, when in self.seen_papers.items()
             if when > cutoff
