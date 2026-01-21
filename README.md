@@ -35,10 +35,10 @@ Magpie helps researchers discover relevant papers using RAG (Retrieval-Augmented
 - [ ] Zotero Client
 
 ### Data Models
-- [ ] Paper schema
-- [ ] Query schema
-- [ ] Profile schema
-- [ ] Results schema
+- [x] Paper schema
+- [x] Query schema
+- [x] Profile schema
+- [x] Results schema
 
 ## Tech Stack
 
