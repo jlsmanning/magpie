@@ -1,4 +1,4 @@
-# Magpie 🪶
+# Magpie
 
 AI-powered research paper discovery system with conversational interest management.
 
