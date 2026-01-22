@@ -30,7 +30,7 @@ Magpie helps researchers discover relevant papers using RAG (Retrieval-Augmented
 
 ### Integrations
 - [ ] ArXiv Puller
-- [ ] Embedder (Sentence-BERT)
+- [x] Embedder (Sentence-BERT)
 - [ ] LLM Client (Claude)
 - [ ] Zotero Client
 
