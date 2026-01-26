@@ -63,10 +63,10 @@ htmlcov/
 notes.txt
 design/
 scratch/
-TODO.md
 *.draft
 magpie_flowchart.dia
-magpie_project_structure.md
+*.md
+!README.md
 
 # emacs lock files
 *~
