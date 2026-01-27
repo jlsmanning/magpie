@@ -8,6 +8,8 @@ import datetime
 import pydantic
 import typing
 
+from magpie.models.query import Query
+
 class Interest(pydantic.BaseModel):
     """
     A research interest/topic that the user wants to track.
@@ -105,6 +107,11 @@ class UserProfile(pydantic.BaseModel):
     exclude_seen_papers: bool = pydantic.Field(
         default=True,
         description="Default: filter out previously seen papers"
+    )
+
+    current_query: typing.Optional[Query] = pydantic.Field(
+        default=None,
+        description="Current query being built/modified before execution"
     )
     
     # History tracking

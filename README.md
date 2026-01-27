@@ -24,12 +24,12 @@ Magpie helps researchers discover relevant papers using RAG (Retrieval-Augmented
 - [ ] Input Parser/Manager
 - [x] Query Processor
 - [x] Vector Search
-- [ ] Reranker
-- [ ] Synthesizer
+- [x] Reranker
+- [x] Synthesizer
 - [ ] Profile Manager
 
 ### Integrations
-- [ ] ArXiv Puller
+- [x] ArXiv Puller
 - [x] Embedder (Sentence-BERT)
 - [ ] LLM Client (Claude)
 - [ ] Zotero Client
