@@ -7,72 +7,21 @@ Defines user research interests and default search preferences.
 import datetime
 import pydantic
 import typing
-
-from magpie.models.query import Query
-
-class Interest(pydantic.BaseModel):
-    """
-    A research interest/topic that the user wants to track.
-    
-    weight_stars determines relative importance - higher stars means
-    this interest will receive proportionally more papers in search results.
-    Stars are normalized to weights when generating queries.
-    """
-    id: str = pydantic.Field(
-        ...,
-        description="Unique identifier for this interest"
-    ) #FIXME: ensure unique in InputParserManager
-    
-    topic: str = pydantic.Field(
-        ...,
-        description="The research interest (e.g., 'explainable AI', 'computer vision')",
-        min_length=1
-    ) #FIXME: ensure no duplicates
-    
-    weight_stars: int = pydantic.Field(
-        ...,
-        description="Priority rating - higher = more important (1-100)",
-        ge=1,
-        le=100
-    )
-    
-    added_date: datetime.datetime = pydantic.Field(
-        default_factory=datetime.datetime.now,
-        description="When this interest was added"
-    )
-    
-    last_modified: datetime.datetime = pydantic.Field(
-        default_factory=datetime.datetime.now,
-        description="When this interest was last updated"
-    )
-    
-    @pydantic.field_validator('topic')
-    @classmethod
-    def topic_not_empty(cls, v: str) -> str:
-        """Ensure topic is not just whitespace."""
-        if not v.strip():
-            raise ValueError("Topic cannot be empty or whitespace")
-        return v.strip()
-
+if typing.TYPE_CHECKING:
+    from magpie.models.query import Query
 
 class UserProfile(pydantic.BaseModel):
     """
     Complete user profile containing research interests and search preferences.
     
-    Interests are stored with star ratings that get normalized to weights
-    when generating queries. Default search parameters can be overridden
-    per-query.
+    Default search parameters can be overridden per-query.
     """
     user_id: str = pydantic.Field(
         ...,
         description="Unique identifier for this user"
     ) #FIXME: ensure unique
     
-    interests: typing.List[Interest] = pydantic.Field(
-        default_factory=list,
-        description="typing.List of research interests"
-    ) #FIXME: ensure is set
-    
+   
     # Default search parameters (can be overridden in Query)
     max_results: int = pydantic.Field(
         default=10,
@@ -113,6 +62,11 @@ class UserProfile(pydantic.BaseModel):
         default=None,
         description="Current query being built/modified before execution"
     )
+
+    research_context: typing.Optional[str] = pydantic.Field(
+        default=None,
+        description="Summary of user's research goals, expertise level, and preferences for paper discovery"
+    )
     
     # History tracking
     seen_papers: typing.Dict[str, datetime.datetime] = pydantic.Field(
@@ -140,90 +94,6 @@ class UserProfile(pydantic.BaseModel):
             if start_date > end_date:
                 raise ValueError(f"Start date {start_date} must be before end date {end_date}")
         return v
-
-    @pydantic.field_validator('interests')
-    @classmethod
-    def no_duplicate_topics(cls, v: typing.List[Interest]) -> typing.List[Interest]:
-        topics_lower = [interest.topic.lower() for interest in v]
-        if len(topics_lower) != len(set(topics_lower)):
-            raise ValueError("Cannot have multiple interests with the same topic")
-        return v
-    
-    def get_interest_by_id(self, interest_id: str) -> typing.Optional[Interest]:
-        """Find an interest by its ID."""
-        for interest in self.interests:
-            if interest.id == interest_id:
-                return interest
-        return None
-    
-    def add_interest(self, interest: Interest) -> None:
-        """Add a new interest to the profile."""
-        # Check for duplicate IDs
-        if self.get_interest_by_id(interest.id) is not None:
-            raise ValueError(f"Interest with ID {interest.id} already exists")
-        if any(i.topic.lower() == interest.topic.lower() for i in self.interests):
-            raise ValueError(f"Interest with topic '{interest.topic}' already exists")
-        self.interests.append(interest)
-        self.last_updated = datetime.datetime.now()
-    
-    def remove_interest(self, interest_id: str) -> bool:
-        """
-        Remove an interest by ID.
-        Returns True if removed, False if not found.
-        """
-        for i, interest in enumerate(self.interests):
-            if interest.id == interest_id:
-                self.interests.pop(i)
-                self.last_updated = datetime.datetime.now()
-                return True
-        return False
-    
-    def update_interest_stars(self, interest_id: str, new_stars: int) -> bool:
-        """
-        Update the star rating for an interest.
-        Returns True if updated, False if not found.
-        """
-        interest = self.get_interest_by_id(interest_id)
-        if interest is not None:
-            interest.weight_stars = new_stars
-            interest.last_modified = datetime.datetime.now()
-            self.last_updated = datetime.datetime.now()
-            return True
-        return False
-    
-    def normalize_interest_weights(self) -> dict[str, float]:
-        """
-        Convert star ratings to normalized weights that sum to 1.0.
-        Returns dict mapping interest_id -> weight.
-        """
-        if not self.interests:
-            return {}
-        
-        total_stars = sum(interest.weight_stars for interest in self.interests)
-        return {
-            interest.id: interest.weight_stars / total_stars
-            for interest in self.interests
-        }
-
-    def has_topic(self, topic: str) -> bool:
-        """Check if an interest with this topic already exists."""
-        return any(
-            interest.topic.lower() == topic.lower() 
-            for interest in self.interests
-        )
-
-    def get_interests_by_topic(self, topic: str) -> typing.List[Interest]:
-        """
-        Find all interests containing the given topic substring (case-insensitive).
-
-        Example: search for "vision" returns interests with topics like
-        "computer vision", "vision transformers", "3D vision", etc.
-        """
-        search_term = topic.lower()
-        return [
-            interest for interest in self.interests
-            if search_term in interest.topic.lower()
-        ]
     
     def mark_paper_seen(self, paper_id: str) -> None:
         """Mark a paper as seen."""
@@ -249,29 +119,6 @@ class UserProfile(pydantic.BaseModel):
         json_schema_extra = {
             "example": {
                 "user_id": "user-123",
-                "interests": [
-                    {
-                        "id": "interest-uuid-1",
-                        "topic": "explainable AI",
-                        "weight_stars": 6,
-                        "added_date": "2025-01-15T10:00:00",
-                        "last_modified": "2025-01-20T14:30:00"
-                    },
-                    {
-                        "id": "interest-uuid-2",
-                        "topic": "computer vision bias",
-                        "weight_stars": 4,
-                        "added_date": "2025-01-15T10:00:00",
-                        "last_modified": "2025-01-15T10:00:00"
-                    },
-                    {
-                        "id": "interest-uuid-3",
-                        "topic": "fine-grained classification",
-                        "weight_stars": 2,
-                        "added_date": "2025-01-18T09:00:00",
-                        "last_modified": "2025-01-18T09:00:00"
-                    }
-                ],
                 "max_results": 20,
                 "date_range": ["2023-01-01", "2025-01-20"],
                 "min_citations": 10,
