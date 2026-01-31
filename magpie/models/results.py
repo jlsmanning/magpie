@@ -42,6 +42,11 @@ class PaperResult(pydantic.BaseModel):
         default=None,
         description="LLM-generated explanation of why this paper is relevant to user's interests"
     )
+
+    rerank_reasoning: typing.Optional[str] = pydantic.Field(
+        default=None,
+        description="LLM's reasoning for relevance score during reranking"
+    )
     
     def get_source_interest_ids(self) -> typing.Set[str]:
         """

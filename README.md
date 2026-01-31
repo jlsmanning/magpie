@@ -10,10 +10,11 @@ Magpie helps researchers discover relevant papers using RAG (Retrieval-Augmented
 
 ## Planned Features
 
-- [ ] Multi-query semantic search using RAG
-- [ ] Natural language profile management (add/remove research interests)
+- [x] Multi-query semantic search using RAG
+- [x] Conversational query-building with LLM
+- [ ] Profile persistence (save/load user research context and queries) 
 - [x] ArXiv paper ingestion and indexing
-- [ ] LLM-powered result synthesis and explanations
+- [x] LLM-powered result synthesis and explanations
 - [ ] Zotero integration for saving papers
 - [ ] Serendipity sampler (cross-field recommendations)
 - [ ] Voice/audio interface
@@ -21,7 +22,7 @@ Magpie helps researchers discover relevant papers using RAG (Retrieval-Augmented
 ## Implementation Status
 
 ### Core Components
-- [ ] Input Parser/Manager
+- [x] Input Parser/Manager
 - [x] Query Processor
 - [x] Vector Search
 - [x] Reranker
@@ -31,7 +32,7 @@ Magpie helps researchers discover relevant papers using RAG (Retrieval-Augmented
 ### Integrations
 - [x] ArXiv Puller
 - [x] Embedder (Sentence-BERT)
-- [ ] LLM Client (Claude)
+- [x] LLM Client (Claude)
 - [ ] Zotero Client
 
 ### Data Models

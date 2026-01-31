@@ -13,25 +13,19 @@ from magpie.models.profile import UserProfile
 def synthesize_results(
     results: SearchResults,
     profile: UserProfile,
-    llm_client=None  # Stub for future LLM-based synthesis
+    llm_client=None
 ) -> SearchResults:
     """
     Generate explanations for search results.
     
-    Populates the explanation field for each PaperResult based on:
-    - Which user interests led to this paper
-    - Which subqueries matched
-    - Paper metadata (categories, venue, recency)
-    
-    TODO: Implement LLM-based synthesis that:
-    - Generates natural language explanations of relevance
-    - Summarizes key contributions from abstract
-    - Explains connections to user's specific interests
+    Uses LLM to create 2-3 sentence explanations for each paper,
+    describing relevance and key contributions. Optimized for audio
+    presentation - brief enough to listen to while deciding to explore further.
     
     Args:
         results: SearchResults from reranker
-        profile: User profile with interests
-        llm_client: LLM client for generating explanations (not yet implemented)
+        profile: User profile with research context
+        llm_client: LLM client for generating explanations (creates if None)
         
     Returns:
         SearchResults with explanation fields populated
@@ -39,21 +33,38 @@ def synthesize_results(
     if not results.results:
         return results
     
-    # Generate explanation for each paper
-    for paper_result in results.results:
-        paper_result.explanation = _generate_basic_explanation(
-            paper_result,
-            profile
+    # Use LLM to generate explanations
+    if llm_client is None:
+        from magpie.integrations.llm_client import ClaudeClient
+        llm_client = ClaudeClient()
+    
+    # Generate explanations in batch
+    try:
+        explanations = _generate_llm_explanations(
+            results=results,
+            profile=profile,
+            llm_client=llm_client
         )
         
-        # TODO: Replace basic explanation with LLM-generated one
-        # llm_explanation = _generate_llm_explanation(
-        #     paper_result,
-        #     profile,
-        #     results.query,
-        #     llm_client
-        # )
-        # paper_result.explanation = llm_explanation
+        # Apply explanations to paper results
+        for i, paper_result in enumerate(results.results):
+            if i < len(explanations):
+                paper_result.explanation = explanations[i]
+            else:
+                # Fallback to basic explanation if LLM didn't return enough
+                paper_result.explanation = _generate_basic_explanation(
+                    paper_result,
+                    profile
+                )
+    
+    except Exception as e:
+        # If LLM synthesis fails, fall back to basic explanations
+        print(f"Warning: LLM synthesis failed: {e}")
+        for paper_result in results.results:
+            paper_result.explanation = _generate_basic_explanation(
+                paper_result,
+                profile
+            )
     
     return results
 
@@ -117,36 +128,143 @@ def _generate_basic_explanation(
     return ". ".join(parts) + "."
 
 
-def _generate_llm_explanation(
-    paper_result: PaperResult,
+def _generate_llm_explanations(
+    results: SearchResults,
     profile: UserProfile,
-    query,
     llm_client
-) -> str:
+) -> typing.List[str]:
     """
-    Generate rich explanation using LLM (stub).
-    
-    TODO: Implement LLM call that:
-    1. Provides paper title, abstract, metadata
-    2. Provides user interests and query context
-    3. Asks LLM to explain:
-       - Why this paper is relevant
-       - How it relates to user's interests
-       - Key contributions/findings
-       - Whether user should prioritize reading it
+    Generate explanations for all papers using LLM in batch.
     
     Args:
-        paper_result: Paper with relevance info
-        profile: User profile with interests
-        query: Original query
+        results: SearchResults with papers to explain
+        profile: User profile with research context
         llm_client: LLM client
         
     Returns:
-        Natural language explanation
+        List of explanation strings (same order as results.results)
     """
-    # Stub: Would make LLM call here
-    raise NotImplementedError("LLM-based synthesis not yet implemented")
+    # Build system prompt
+    system_prompt = _build_synthesis_prompt(results.query, profile)
+    
+    # Format papers for synthesis
+    papers_text = _format_papers_for_synthesis(results.results)
+    
+    user_message = f"""
+Generate brief explanations for these papers. For each paper, write 2-3 sentences that:
+1. Explain why it's relevant to the user's query
+2. Describe the key contribution or approach
+
+Keep it concise - user will listen to these to decide which papers to explore further.
+
+Papers:
+{papers_text}
+
+Return JSON:
+{{
+  "explanations": [
+    "Paper 0: explanation here...",
+    "Paper 1: explanation here...",
+    ...
+  ]
+}}
+"""
+    
+    response = llm_client.chat_with_json(
+        messages=[{"role": "user", "content": user_message}],
+        system=system_prompt,
+        max_tokens=3000,
+        temperature=0.3  # Slightly creative but consistent
+    )
+    
+    return response.get("explanations", [])
+
+
+def _build_synthesis_prompt(
+    query: 'Query',
+    profile: UserProfile
+) -> str:
+    """
+    Build system prompt for synthesis.
+    
+    Args:
+        query: Search query
+        profile: User profile with context
+        
+    Returns:
+        System prompt string
+    """
+    query_topics = [sq.text for sq in query.queries]
+    query_text = ", ".join(query_topics)
+    
+    user_context = profile.research_context or "No specific context provided."
+    
+    prompt = f"""You are explaining research papers to a user.
+
+USER QUERY: {query_text}
+
+USER RESEARCH CONTEXT:
+{user_context}
+
+Your task is to generate brief, audio-friendly explanations (2-3 sentences each).
+
+Each explanation should:
+- State why the paper is relevant to the query
+- Describe the key contribution or approach
+- Be conversational and easy to understand when spoken aloud
+- Help user decide if they want to explore this paper further
+
+The user will listen to these while walking/driving, so be concise and clear.
+"""
+    
+    return prompt
+
+
+def _format_papers_for_synthesis(
+    papers: typing.List['PaperResult']
+) -> str:
+    """
+    Format papers for synthesis.
+    
+    Args:
+        papers: List of PaperResult objects
+        
+    Returns:
+        Formatted string with paper details
+    """
+    lines = []
+    for i, paper_result in enumerate(papers):
+        paper = paper_result.paper
+        
+        lines.append(f"\n--- Paper {i} ---")
+        lines.append(f"Title: {paper.title}")
+        lines.append(f"Authors: {', '.join(paper.authors[:3])}")
+        if len(paper.authors) > 3:
+            lines.append(f"  (+ {len(paper.authors) - 3} more)")
+        lines.append(f"Published: {paper.published_date}")
+        if paper.venue:
+            lines.append(f"Venue: {paper.venue}")
+        
+        # Include which queries matched
+        matched_queries = [sq.text for sq in paper_result.matched_subqueries]
+        lines.append(f"Matched queries: {', '.join(matched_queries)}")
+        
+        # Include reranker's reasoning if available
+        if paper_result.rerank_reasoning:
+            lines.append(f"Reranker said: {paper_result.rerank_reasoning}")
+        
+        lines.append(f"Abstract: {paper.abstract}")
+        lines.append("")
+    
+    return "\n".join(lines)
+
 
 
 # Import datetime for age calculation
 import datetime
+
+# Type hints
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from magpie.models.results import PaperResult
+    from magpie.models.query import Query
