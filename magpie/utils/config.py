@@ -5,8 +5,8 @@ Centralized settings that can be overridden via environment variables or config 
 TODO: Add YAML config file support for easier configuration management.
 """
 #FIXME: There are some ugly things here like hard coded LLM stuff, mix of user and implementation variables, and model dims should be inferred
-import os
 import dotenv
+import os
 
 # Load environment variables from .env file if it exists
 dotenv.load_dotenv()
@@ -52,7 +52,13 @@ class Config:
     
     # Paper sources
     ARXIV_MAX_RESULTS_PER_QUERY = 100
-    
+
+    # Zotero settings
+    ZOTERO_LIBRARY_ID = os.getenv("ZOTERO_LIBRARY_ID")
+    ZOTERO_LIBRARY_TYPE = os.getenv("ZOTERO_LIBRARY_TYPE", "user")  # or "group"
+    ZOTERO_API_KEY = os.getenv("ZOTERO_API_KEY")
+    ZOTERO_COLLECTION_NAME = os.getenv("ZOTERO_COLLECTION_NAME", "magpie")
+        
     @classmethod
     def validate(cls) -> None:
         """Validate configuration settings."""

@@ -27,7 +27,8 @@ Magpie helps researchers discover relevant papers using RAG (Retrieval-Augmented
 - [x] Vector Search
 - [x] Reranker
 - [x] Synthesizer
-- [ ] Profile Manager
+- [x] Profile Manager
+- [ ] Interactive Reviewer
 
 ### Integrations
 - [x] ArXiv Puller

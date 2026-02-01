@@ -6,8 +6,9 @@ structured outputs (Query objects, profile updates) from natural language.
 Uses LLM to help users build search queries through dialogue.
 """
 
-import typing
 import datetime
+import typing
+
 from magpie.models.query import Query, SubQuery
 from magpie.models.profile import UserProfile
 from magpie.integrations.llm_client import ClaudeClient
@@ -194,7 +195,8 @@ def process_message(
     user_message: str,
     profile: UserProfile,
     conversation_history: typing.List[typing.Dict[str, str]],
-    llm_client: typing.Optional[ClaudeClient] = None
+    llm_client: typing.Optional[ClaudeClient] = None,
+    auto_save: bool = True    
 ) -> ConversationResponse:
     """
     Process user message in conversational context.
@@ -208,6 +210,7 @@ def process_message(
         conversation_history: Previous messages in format:
             [{"role": "user"|"assistant", "content": "..."}]
         llm_client: LLM client for conversation (creates if None)
+        auto_save: If True, automatically saves profile when modified (default: True)
     
     Returns:
         ConversationResponse containing:
@@ -257,6 +260,16 @@ def process_message(
     if response_type == "action":
         action = llm_response.get("action", {})
         return _handle_action(action, message, profile)
+
+    # Auto-save profile if it was modified
+        if auto_save and response.has_profile_updates():
+            from magpie.utils.profile_manager import save_profile
+            try:
+                save_profile(profile)
+            except Exception as e:
+                print(f"Warning: Failed to save profile: {e}")
+        
+        return response
     else:
         # conversation or question - just return message
         return ConversationResponse(
