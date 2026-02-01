@@ -75,11 +75,11 @@ def _generate_basic_explanation(
 ) -> str:
     """
     Generate basic explanation from metadata (no LLM).
-    
+
     Args:
         paper_result: Paper with matched subqueries
-        profile: User profile for interest lookup
-        
+        profile: User profile (unused, kept for API consistency)
+
     Returns:
         Explanation string
     """
@@ -96,16 +96,6 @@ def _generate_basic_explanation(
         query_text = paper_result.matched_subqueries[0].text
         parts.append(f"Matches: {query_text}")
     
-    # Which user interests (if traceable)
-    interest_ids = paper_result.get_source_interest_ids()
-    if interest_ids:
-        interest_names = []
-        for interest_id in interest_ids:
-            interest = profile.get_interest_by_id(interest_id)
-            if interest:
-                interest_names.append(interest.topic)
-        if interest_names:
-            parts.append(f"Related to your interests in: {', '.join(interest_names)}")
     
     # Venue if notable
     if paper.venue:

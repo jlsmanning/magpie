@@ -58,7 +58,7 @@ class UserProfile(pydantic.BaseModel):
         description="Default: filter out previously seen papers"
     )
 
-    current_query: typing.Optional[Query] = pydantic.Field(
+    current_query: typing.Optional["Query"] = pydantic.Field(
         default=None,
         description="Current query being built/modified before execution"
     )
@@ -130,3 +130,8 @@ class UserProfile(pydantic.BaseModel):
                 "last_updated": "2025-01-20T14:30:00"
             }
         }
+
+
+# Resolve forward reference to Query for Pydantic
+from magpie.models.query import Query
+UserProfile.model_rebuild()

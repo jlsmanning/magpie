@@ -9,7 +9,7 @@ import pytest
 import pydantic
 
 from magpie.models.query import SubQuery, Query
-from magpie.models.profile import Interest, UserProfile
+from magpie.models.profile import UserProfile
 from magpie.models.paper import Paper
 from magpie.models.results import PaperResult, SearchResults
 
@@ -175,64 +175,6 @@ class TestQuery:
 
 
 # =============================================================================
-# Interest Tests
-# =============================================================================
-
-class TestInterest:
-    """Tests for Interest model."""
-
-    def test_valid_interest(self):
-        """Test creating a valid Interest."""
-        interest = Interest(
-            id="int-1",
-            topic="machine learning",
-            weight_stars=50
-        )
-        assert interest.id == "int-1"
-        assert interest.topic == "machine learning"
-        assert interest.weight_stars == 50
-
-    def test_interest_topic_stripped(self):
-        """Test that topic is stripped of whitespace."""
-        interest = Interest(
-            id="int-1",
-            topic="  computer vision  ",
-            weight_stars=30
-        )
-        assert interest.topic == "computer vision"
-
-    def test_interest_empty_topic_raises(self):
-        """Test that empty topic raises validation error."""
-        with pytest.raises(pydantic.ValidationError):
-            Interest(id="int-1", topic="", weight_stars=30)
-
-    def test_interest_whitespace_topic_raises(self):
-        """Test that whitespace-only topic raises validation error."""
-        with pytest.raises(pydantic.ValidationError):
-            Interest(id="int-1", topic="   ", weight_stars=30)
-
-    def test_interest_weight_stars_boundaries(self):
-        """Test weight_stars at boundary values."""
-        int_min = Interest(id="int-1", topic="test", weight_stars=1)
-        int_max = Interest(id="int-2", topic="test2", weight_stars=100)
-        assert int_min.weight_stars == 1
-        assert int_max.weight_stars == 100
-
-    def test_interest_weight_stars_out_of_bounds(self):
-        """Test weight_stars out of bounds raises error."""
-        with pytest.raises(pydantic.ValidationError):
-            Interest(id="int-1", topic="test", weight_stars=0)
-        with pytest.raises(pydantic.ValidationError):
-            Interest(id="int-1", topic="test", weight_stars=101)
-
-    def test_interest_dates_auto_set(self):
-        """Test that dates are automatically set."""
-        interest = Interest(id="int-1", topic="test", weight_stars=50)
-        assert interest.added_date is not None
-        assert interest.last_modified is not None
-
-
-# =============================================================================
 # UserProfile Tests
 # =============================================================================
 
@@ -243,27 +185,28 @@ class TestUserProfile:
         """Test creating a valid UserProfile."""
         profile = UserProfile(user_id="user-1")
         assert profile.user_id == "user-1"
-        assert profile.interests == []
         assert profile.max_results == 10  # default
 
-    def test_user_profile_with_interests(self):
-        """Test UserProfile with interests."""
-        interests = [
-            Interest(id="int-1", topic="NLP", weight_stars=60),
-            Interest(id="int-2", topic="CV", weight_stars=40)
-        ]
-        profile = UserProfile(user_id="user-1", interests=interests)
-        assert len(profile.interests) == 2
+    def test_user_profile_defaults(self):
+        """Test UserProfile default values."""
+        profile = UserProfile(user_id="user-1")
+        assert profile.max_results == 10
+        assert profile.recency_weight == 0.5
+        assert profile.exclude_seen_papers is True
+        assert profile.date_range is None
+        assert profile.min_citations is None
+        assert profile.venues is None
+        assert profile.current_query is None
+        assert profile.research_context is None
+        assert profile.seen_papers == {}
 
-    def test_user_profile_duplicate_topics_raises(self):
-        """Test that duplicate topics raise validation error."""
-        interests = [
-            Interest(id="int-1", topic="machine learning", weight_stars=50),
-            Interest(id="int-2", topic="Machine Learning", weight_stars=50)
-        ]
-        with pytest.raises(pydantic.ValidationError) as exc_info:
-            UserProfile(user_id="user-1", interests=interests)
-        assert "same topic" in str(exc_info.value)
+    def test_user_profile_with_research_context(self):
+        """Test UserProfile with research context."""
+        profile = UserProfile(
+            user_id="user-1",
+            research_context="Studying explainable AI for medical imaging"
+        )
+        assert profile.research_context == "Studying explainable AI for medical imaging"
 
     def test_user_profile_date_range_invalid(self):
         """Test that invalid date range raises error."""
@@ -273,118 +216,13 @@ class TestUserProfile:
                 date_range=(datetime.date(2024, 1, 1), datetime.date(2023, 1, 1))
             )
 
-    def test_get_interest_by_id(self):
-        """Test get_interest_by_id method."""
-        interests = [
-            Interest(id="int-1", topic="NLP", weight_stars=50),
-            Interest(id="int-2", topic="CV", weight_stars=50)
-        ]
-        profile = UserProfile(user_id="user-1", interests=interests)
-
-        found = profile.get_interest_by_id("int-1")
-        assert found is not None
-        assert found.topic == "NLP"
-
-        not_found = profile.get_interest_by_id("int-999")
-        assert not_found is None
-
-    def test_add_interest(self):
-        """Test add_interest method."""
-        profile = UserProfile(user_id="user-1")
-        interest = Interest(id="int-1", topic="NLP", weight_stars=50)
-
-        profile.add_interest(interest)
-        assert len(profile.interests) == 1
-        assert profile.interests[0].topic == "NLP"
-
-    def test_add_interest_duplicate_id_raises(self):
-        """Test that adding interest with duplicate ID raises error."""
-        profile = UserProfile(user_id="user-1")
-        interest1 = Interest(id="int-1", topic="NLP", weight_stars=50)
-        interest2 = Interest(id="int-1", topic="CV", weight_stars=50)
-
-        profile.add_interest(interest1)
-        with pytest.raises(ValueError) as exc_info:
-            profile.add_interest(interest2)
-        assert "already exists" in str(exc_info.value)
-
-    def test_add_interest_duplicate_topic_raises(self):
-        """Test that adding interest with duplicate topic raises error."""
-        profile = UserProfile(user_id="user-1")
-        interest1 = Interest(id="int-1", topic="NLP", weight_stars=50)
-        interest2 = Interest(id="int-2", topic="nlp", weight_stars=50)
-
-        profile.add_interest(interest1)
-        with pytest.raises(ValueError) as exc_info:
-            profile.add_interest(interest2)
-        assert "already exists" in str(exc_info.value)
-
-    def test_remove_interest(self):
-        """Test remove_interest method."""
-        interest = Interest(id="int-1", topic="NLP", weight_stars=50)
-        profile = UserProfile(user_id="user-1", interests=[interest])
-
-        result = profile.remove_interest("int-1")
-        assert result is True
-        assert len(profile.interests) == 0
-
-        result = profile.remove_interest("int-999")
-        assert result is False
-
-    def test_update_interest_stars(self):
-        """Test update_interest_stars method."""
-        interest = Interest(id="int-1", topic="NLP", weight_stars=50)
-        profile = UserProfile(user_id="user-1", interests=[interest])
-
-        result = profile.update_interest_stars("int-1", 75)
-        assert result is True
-        assert profile.interests[0].weight_stars == 75
-
-        result = profile.update_interest_stars("int-999", 75)
-        assert result is False
-
-    def test_normalize_interest_weights(self):
-        """Test normalize_interest_weights method."""
-        interests = [
-            Interest(id="int-1", topic="NLP", weight_stars=60),
-            Interest(id="int-2", topic="CV", weight_stars=40)
-        ]
-        profile = UserProfile(user_id="user-1", interests=interests)
-
-        weights = profile.normalize_interest_weights()
-        assert weights["int-1"] == 0.6
-        assert weights["int-2"] == 0.4
-        assert sum(weights.values()) == 1.0
-
-    def test_normalize_interest_weights_empty(self):
-        """Test normalize_interest_weights with no interests."""
-        profile = UserProfile(user_id="user-1")
-        weights = profile.normalize_interest_weights()
-        assert weights == {}
-
-    def test_has_topic(self):
-        """Test has_topic method."""
-        interest = Interest(id="int-1", topic="Machine Learning", weight_stars=50)
-        profile = UserProfile(user_id="user-1", interests=[interest])
-
-        assert profile.has_topic("machine learning") is True
-        assert profile.has_topic("MACHINE LEARNING") is True
-        assert profile.has_topic("deep learning") is False
-
-    def test_get_interests_by_topic(self):
-        """Test get_interests_by_topic method."""
-        interests = [
-            Interest(id="int-1", topic="computer vision", weight_stars=50),
-            Interest(id="int-2", topic="vision transformers", weight_stars=30),
-            Interest(id="int-3", topic="NLP", weight_stars=20)
-        ]
-        profile = UserProfile(user_id="user-1", interests=interests)
-
-        results = profile.get_interests_by_topic("vision")
-        assert len(results) == 2
-
-        results = profile.get_interests_by_topic("NLP")
-        assert len(results) == 1
+    def test_user_profile_date_range_valid(self):
+        """Test valid date range on profile."""
+        profile = UserProfile(
+            user_id="user-1",
+            date_range=(datetime.date(2023, 1, 1), datetime.date(2024, 1, 1))
+        )
+        assert profile.date_range == (datetime.date(2023, 1, 1), datetime.date(2024, 1, 1))
 
     def test_mark_paper_seen(self):
         """Test mark_paper_seen method."""
@@ -415,6 +253,42 @@ class TestUserProfile:
 
         assert "recent" in profile.seen_papers
         assert "old" not in profile.seen_papers
+
+    def test_user_profile_timestamps(self):
+        """Test that created_at and last_updated are auto-set."""
+        profile = UserProfile(user_id="user-1")
+        assert profile.created_at is not None
+        assert profile.last_updated is not None
+        assert isinstance(profile.created_at, datetime.datetime)
+        assert isinstance(profile.last_updated, datetime.datetime)
+
+    def test_user_profile_max_results_boundaries(self):
+        """Test max_results boundaries on profile."""
+        profile_min = UserProfile(user_id="user-1", max_results=1)
+        profile_max = UserProfile(user_id="user-2", max_results=100)
+        assert profile_min.max_results == 1
+        assert profile_max.max_results == 100
+
+    def test_user_profile_max_results_out_of_bounds(self):
+        """Test max_results out of bounds raises error."""
+        with pytest.raises(pydantic.ValidationError):
+            UserProfile(user_id="user-1", max_results=0)
+        with pytest.raises(pydantic.ValidationError):
+            UserProfile(user_id="user-1", max_results=101)
+
+    def test_user_profile_recency_weight_boundaries(self):
+        """Test recency_weight boundaries."""
+        profile_min = UserProfile(user_id="user-1", recency_weight=0.0)
+        profile_max = UserProfile(user_id="user-2", recency_weight=1.0)
+        assert profile_min.recency_weight == 0.0
+        assert profile_max.recency_weight == 1.0
+
+    def test_user_profile_recency_weight_out_of_bounds(self):
+        """Test recency_weight out of bounds raises error."""
+        with pytest.raises(pydantic.ValidationError):
+            UserProfile(user_id="user-1", recency_weight=-0.1)
+        with pytest.raises(pydantic.ValidationError):
+            UserProfile(user_id="user-1", recency_weight=1.1)
 
 
 # =============================================================================
@@ -656,6 +530,16 @@ class TestPaperResult:
 
         assert single.matched_multiple_queries() is False
         assert multiple.matched_multiple_queries() is True
+
+    def test_paper_result_with_rerank_reasoning(self, sample_paper, sample_subquery):
+        """Test PaperResult with rerank reasoning."""
+        result = PaperResult(
+            paper=sample_paper,
+            matched_subqueries=[sample_subquery],
+            relevance_score=0.85,
+            rerank_reasoning="Strong methodological contribution"
+        )
+        assert result.rerank_reasoning == "Strong methodological contribution"
 
 
 # =============================================================================

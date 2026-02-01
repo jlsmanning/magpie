@@ -259,16 +259,16 @@ def process_message(
     
     if response_type == "action":
         action = llm_response.get("action", {})
-        return _handle_action(action, message, profile)
+        response = _handle_action(action, message, profile)
 
-    # Auto-save profile if it was modified
+        # Auto-save profile if it was modified
         if auto_save and response.has_profile_updates():
-            from magpie.utils.profile_manager import save_profile
+            from magpie.core.profile_manager import save_profile
             try:
                 save_profile(profile)
             except Exception as e:
                 print(f"Warning: Failed to save profile: {e}")
-        
+
         return response
     else:
         # conversation or question - just return message
@@ -444,10 +444,17 @@ def _handle_action(
 
 def _add_subquery(profile: UserProfile, text: str, rebalance: bool = True) -> None:
     """Add subquery to current_query, creating query if needed."""
-    # Create query if doesn't exist
+    # Create subquery first
+    subquery = SubQuery(
+        text=text,
+        weight=1.0,  # Will be rebalanced
+        source_interest_ids=None
+    )
+
+    # Create query if doesn't exist (with first subquery to satisfy min_length=1)
     if profile.current_query is None:
         profile.current_query = Query(
-            queries=[],
+            queries=[subquery],
             max_results=profile.max_results,
             date_range=profile.date_range,
             min_citations=profile.min_citations,
@@ -455,18 +462,12 @@ def _add_subquery(profile: UserProfile, text: str, rebalance: bool = True) -> No
             venues=profile.venues,
             exclude_seen_papers=profile.exclude_seen_papers
         )
-    
-    # Add subquery
-    subquery = SubQuery(
-        text=text,
-        weight=1.0,  # Will be rebalanced
-        source_interest_ids=None
-    )
-    profile.current_query.queries.append(subquery)
-    
-    # Rebalance weights
-    if rebalance:
-        _rebalance_weights(profile.current_query)
+    else:
+        # Add to existing query
+        profile.current_query.queries.append(subquery)
+        # Rebalance weights
+        if rebalance:
+            _rebalance_weights(profile.current_query)
 
 
 def _remove_subquery(profile: UserProfile, target: str) -> None:

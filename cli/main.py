@@ -52,7 +52,7 @@ def apply_profile_updates(
 ) -> UserProfile:
     """Apply updates to user profile."""
     # TODO: Parse updates dict and modify profile accordingly
-    # Updates might be: {"add_interest": {...}}, {"remove_interest": "id"}, etc.
+    # Updates might be: {"modified": True} when query or context was changed
     return profile
 
 
