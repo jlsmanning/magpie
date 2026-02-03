@@ -126,7 +126,10 @@ class InteractiveReviewSession:
         
         elif action_type == "switch_to":
             paper_index = llm_response.get("paper_index")
-            response = self._switch_to_paper(paper_index)
+            if paper_index is not None:
+                response = self._switch_to_paper(paper_index)
+            else:
+                response = "I couldn't determine which paper you wanted to switch to. Please specify a paper number."
         
         elif action_type == "exit_review":
             response = self._exit_review()
@@ -286,7 +289,7 @@ GUIDELINES:
                     paper_id_str
                 )
                 self.downloaded_pdfs[paper_id_str] = (pdf_path, pdf_text)
-            except:
+            except Exception:
                 pass  # Save without PDF if download fails
         
         # Save to Zotero

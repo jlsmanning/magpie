@@ -263,7 +263,7 @@ def process_message(
 
         # Auto-save profile if it was modified
         if auto_save and response.has_profile_updates():
-            from magpie.core.profile_manager import save_profile
+            from magpie.utils.profile_manager import save_profile
             try:
                 save_profile(profile)
             except Exception as e:

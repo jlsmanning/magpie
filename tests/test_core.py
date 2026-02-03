@@ -2,7 +2,7 @@
 Tests for Magpie core processing components.
 
 Tests cover query_processor.py, reranker.py, synthesizer.py,
-profile_manager.py, and input_manager.py.
+utils/profile_manager.py, and input_manager.py.
 """
 
 import datetime
@@ -184,7 +184,7 @@ class TestProfileManager:
 
     def test_create_profile(self, temp_profile_dir):
         """Test creating a new profile."""
-        from magpie.core.profile_manager import create_profile
+        from magpie.utils.profile_manager import create_profile
 
         profile = create_profile("test_user")
 
@@ -193,7 +193,7 @@ class TestProfileManager:
 
     def test_save_and_load_profile(self, temp_profile_dir):
         """Test saving and loading a profile."""
-        from magpie.core.profile_manager import save_profile, load_profile
+        from magpie.utils.profile_manager import save_profile, load_profile
 
         # Create and save profile
         profile = UserProfile(
@@ -212,7 +212,7 @@ class TestProfileManager:
 
     def test_load_nonexistent_creates_new(self, temp_profile_dir):
         """Test that loading nonexistent profile creates a new one."""
-        from magpie.core.profile_manager import load_profile
+        from magpie.utils.profile_manager import load_profile
 
         profile = load_profile("new_user")
 
@@ -221,7 +221,7 @@ class TestProfileManager:
 
     def test_delete_profile(self, temp_profile_dir):
         """Test deleting a profile."""
-        from magpie.core.profile_manager import (
+        from magpie.utils.profile_manager import (
             create_profile, save_profile, delete_profile, profile_exists
         )
 
@@ -239,14 +239,14 @@ class TestProfileManager:
 
     def test_delete_nonexistent_profile(self, temp_profile_dir):
         """Test deleting a profile that doesn't exist."""
-        from magpie.core.profile_manager import delete_profile
+        from magpie.utils.profile_manager import delete_profile
 
         result = delete_profile("nonexistent")
         assert result is False
 
     def test_list_profiles(self, temp_profile_dir):
         """Test listing all profiles."""
-        from magpie.core.profile_manager import (
+        from magpie.utils.profile_manager import (
             create_profile, save_profile, list_profiles
         )
 
