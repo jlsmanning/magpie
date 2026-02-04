@@ -479,3 +479,86 @@ class TestInteractiveReviewSession:
         assert "1 of 3" in prompt
         assert "present_paper" in prompt
         assert "skip_current" in prompt
+
+    def test_save_to_profile(self, sample_search_results, mock_llm_client):
+        """Test saving session state to profile."""
+        from magpie.core.interactive_review import InteractiveReviewSession
+        from magpie.models.profile import UserProfile
+
+        profile = UserProfile(user_id="test-user")
+
+        session = InteractiveReviewSession(
+            results=sample_search_results,
+            llm_client=mock_llm_client
+        )
+        session.current_index = 1
+        session.saved_to_zotero.add("arxiv:2301.00001")
+        session.conversation_history.append({"role": "user", "content": "Hello"})
+        session.last_response = "Welcome!"
+
+        session.save_to_profile(profile)
+
+        assert profile.active_review_session is not None
+        assert profile.active_review_session["current_index"] == 1
+        assert "arxiv:2301.00001" in profile.active_review_session["saved_to_zotero"]
+        assert len(profile.active_review_session["conversation_history"]) == 1
+        assert profile.active_review_session["last_response"] == "Welcome!"
+
+    def test_restore_from_profile(self, sample_search_results, mock_llm_client):
+        """Test restoring session from profile."""
+        from magpie.core.interactive_review import InteractiveReviewSession
+        from magpie.models.profile import UserProfile
+
+        profile = UserProfile(user_id="test-user")
+
+        # First save a session
+        original_session = InteractiveReviewSession(
+            results=sample_search_results,
+            llm_client=mock_llm_client
+        )
+        original_session.current_index = 2
+        original_session.saved_to_zotero.add("arxiv:2301.00002")
+        original_session.conversation_history.append({"role": "user", "content": "Test"})
+        original_session.last_response = "Response"
+        original_session.save_to_profile(profile)
+
+        # Restore from profile
+        restored_session = InteractiveReviewSession.restore_from_profile(
+            profile, mock_llm_client
+        )
+
+        assert restored_session is not None
+        assert restored_session.current_index == 2
+        assert "arxiv:2301.00002" in restored_session.saved_to_zotero
+        assert len(restored_session.conversation_history) == 1
+        assert restored_session.last_response == "Response"
+
+    def test_restore_from_profile_no_session(self, mock_llm_client):
+        """Test restoring when no session saved."""
+        from magpie.core.interactive_review import InteractiveReviewSession
+        from magpie.models.profile import UserProfile
+
+        profile = UserProfile(user_id="test-user")
+
+        restored = InteractiveReviewSession.restore_from_profile(profile, mock_llm_client)
+
+        assert restored is None
+
+    def test_clear_from_profile(self, sample_search_results, mock_llm_client):
+        """Test clearing session from profile."""
+        from magpie.core.interactive_review import InteractiveReviewSession
+        from magpie.models.profile import UserProfile
+
+        profile = UserProfile(user_id="test-user")
+
+        session = InteractiveReviewSession(
+            results=sample_search_results,
+            llm_client=mock_llm_client
+        )
+        session.save_to_profile(profile)
+
+        assert profile.active_review_session is not None
+
+        session.clear_from_profile(profile)
+
+        assert profile.active_review_session is None

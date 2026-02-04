@@ -5,10 +5,12 @@ Post-search conversation where user explores papers one at a time,
 asks questions, and decides whether to save or skip each paper.
 """
 
+import os
 import typing
 
 from magpie.models.results import SearchResults
 from magpie.models.paper import Paper
+from magpie.models.profile import UserProfile
 from magpie.integrations.llm_client import ClaudeClient
 from magpie.integrations.pdf_fetcher import PDFFetcher
 from magpie.integrations.zotero_client import ZoteroClient
@@ -57,6 +59,52 @@ class InteractiveReviewSession:
                 self.zotero_client = ZoteroClient()
             except Exception as e:
                 print(f"Note: Zotero not available: {e}")
+
+    def save_to_profile(self, profile: UserProfile) -> None:
+        """Save current session state to profile for later resume."""
+        profile.active_review_session = {
+            "results": self.results.model_dump(),
+            "current_index": self.current_index,
+            "downloaded_pdfs": {k: v[0] for k, v in self.downloaded_pdfs.items()},  # Just paths
+            "saved_to_zotero": list(self.saved_to_zotero),
+            "conversation_history": self.conversation_history,
+            "last_response": self.last_response
+        }
+
+    @classmethod
+    def restore_from_profile(cls, profile: UserProfile, llm_client=None, pdf_fetcher=None, zotero_client=None) -> typing.Optional['InteractiveReviewSession']:
+        """Restore session from profile's saved state."""
+        if not profile.active_review_session:
+            return None
+
+        session_data = profile.active_review_session
+
+        # Reconstruct SearchResults
+        results = SearchResults.model_validate(session_data["results"])
+
+        # Create new session
+        session = cls(results, llm_client, pdf_fetcher, zotero_client)
+
+        # Restore state
+        session.current_index = session_data["current_index"]
+        session.saved_to_zotero = set(session_data["saved_to_zotero"])
+        session.conversation_history = session_data["conversation_history"]
+        session.last_response = session_data.get("last_response", "")
+
+        # Restore downloaded PDFs (files should still exist)
+        for paper_id, pdf_path in session_data["downloaded_pdfs"].items():
+            if os.path.exists(pdf_path):
+                try:
+                    text = session.pdf_fetcher.extract_text(pdf_path)
+                    session.downloaded_pdfs[paper_id] = (pdf_path, text)
+                except:
+                    pass  # PDF exists but can't read - will re-download if needed
+
+        return session
+
+    def clear_from_profile(self, profile: UserProfile) -> None:
+        """Clear saved session from profile (call when review completes)."""
+        profile.active_review_session = None
     
     def start_review(self) -> str:
         """

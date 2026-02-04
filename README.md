@@ -148,19 +148,12 @@ magpie/
 
 ## Roadmap
 
-### Current (Phase 1)
+### Current
 - [x] Complete pipeline: query building → search → rerank → synthesize → review
 - [x] Zotero integration
 - [x] PDF analysis for deep questions
 
-### Next (Phase 2)
-- [ ] Docker containerization
-- [ ] REST API
-- [ ] Cloud deployment (AWS/GCP)
-- [ ] CI/CD pipeline
-- [ ] Automated paper ingestion (scheduled updates)
-
-### Future (Phase 3)
+### Future
 - [ ] Voice/audio interface for hands-free review
 - [ ] Serendipity sampler (cross-field recommendations)
 - [ ] Multi-source paper retrieval (Semantic Scholar, PubMed)

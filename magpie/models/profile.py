@@ -67,6 +67,11 @@ class UserProfile(pydantic.BaseModel):
         default=None,
         description="Summary of user's research goals, expertise level, and preferences for paper discovery"
     )
+
+    active_review_session: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(
+        default=None,
+        description="Serialized active review session for resume capability"
+    )
     
     # History tracking
     seen_papers: typing.Dict[str, datetime.datetime] = pydantic.Field(

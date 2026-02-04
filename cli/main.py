@@ -99,41 +99,64 @@ def display_results(results: SearchResults) -> None:
         print()
 
 
+def _run_interactive_review_session(session: InteractiveReviewSession, profile: UserProfile) -> None:
+    """
+    Run an interactive review session.
+
+    Args:
+        session: InteractiveReviewSession to run
+        profile: User profile for saving state
+    """
+    # Start/resume review
+    print("\n" + "="*80)
+    print("INTERACTIVE REVIEW")
+    print("="*80 + "\n")
+
+    # Show last response if resuming, otherwise start fresh
+    if session.last_response:
+        print(f"Resuming session...\n{session.last_response}")
+    else:
+        print(session.start_review())
+
+    while True:
+        try:
+            user_input = input("\n> ").strip()
+
+            if not user_input:
+                continue
+
+            response = session.process_message(user_input)
+            print(f"\n{response}")
+
+            # Save session state after each interaction
+            session.save_to_profile(profile)
+            save_profile(profile)
+
+            # Check if review is complete
+            if "Review complete" in response or "Review ended" in response:
+                session.clear_from_profile(profile)
+                save_profile(profile)
+                break
+
+        except KeyboardInterrupt:
+            print("\n\nSaving session for later...")
+            session.save_to_profile(profile)
+            save_profile(profile)
+            break
+        except Exception as e:
+            print(f"\nError: {e}")
+
+
 def interactive_review(results: SearchResults, profile: UserProfile) -> None:
     """
     Enter interactive review mode.
-    
+
     Args:
         results: SearchResults to review
         profile: User profile
     """
     session = InteractiveReviewSession(results)
-    
-    # Start review
-    print("\n" + "="*80)
-    print("INTERACTIVE REVIEW")
-    print("="*80 + "\n")
-    print(session.start_review())
-    
-    while True:
-        try:
-            user_input = input("\n> ").strip()
-            
-            if not user_input:
-                continue
-            
-            response = session.process_message(user_input)
-            print(f"\n{response}")
-            
-            # Check if review is complete
-            if "Review complete" in response or "Review ended" in response:
-                break
-                
-        except KeyboardInterrupt:
-            print("\n\nExiting review...")
-            break
-        except Exception as e:
-            print(f"\nError: {e}")
+    _run_interactive_review_session(session, profile)
 
 
 def main():
@@ -156,10 +179,22 @@ def main():
     print("Loading profile...")
     profile = load_profile()
     print(f"Loaded profile: {profile.user_id}\n")
-    
+
+    # Initialize LLM client (needed for both resume and new conversations)
+    llm_client = ClaudeClient()
+
+    # Check for unfinished review session
+    if profile.active_review_session:
+        print("\nYou have an unfinished review session.")
+        print("Resume? (yes/no)")
+        resume = input("> ").strip().lower()
+        if resume in ['yes', 'y']:
+            session = InteractiveReviewSession.restore_from_profile(profile, llm_client)
+            if session:
+                _run_interactive_review_session(session, profile)
+
     # Initialize conversation
     conversation_history = []
-    llm_client = ClaudeClient()
     
     while True:
         try:
